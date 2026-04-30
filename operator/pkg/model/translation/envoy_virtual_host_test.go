@@ -685,7 +685,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 				},
 			},
 		}
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil)
 		require.Len(t, res, 2)
 		// Redirect Route
 		require.NotNil(t, res[0])

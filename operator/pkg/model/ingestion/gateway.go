@@ -322,6 +322,7 @@ func extractRoutes(logger *slog.Logger,
 		var requestRedirectFilter *model.HTTPRequestRedirectFilter
 		var rewriteFilter *model.HTTPURLRewriteFilter
 		var requestMirrors []*model.HTTPRequestMirror
+		var externalAuth *model.HTTPExternalAuthFilter
 
 		for _, f := range rule.Filters {
 			switch f.Type {
@@ -346,6 +347,8 @@ func extractRoutes(logger *slog.Logger,
 				if svc != nil {
 					requestMirrors = append(requestMirrors, toHTTPRequestMirror(*svc, f.RequestMirror, hr.Namespace))
 				}
+			case gatewayv1.HTTPRouteFilterExternalAuth:
+				externalAuth = toHTTPExternalAuthFilter(f.ExternalAuth, hr.Namespace, services, serviceImports)
 			}
 		}
 
@@ -360,6 +363,7 @@ func extractRoutes(logger *slog.Logger,
 				RequestRedirect:        requestRedirectFilter,
 				Rewrite:                rewriteFilter,
 				RequestMirrors:         requestMirrors,
+				ExternalAuth:           externalAuth,
 				Timeout:                toTimeout(rule.Timeouts),
 				Retry:                  toHTTPRetry(rule.Retry),
 			})
@@ -380,6 +384,7 @@ func extractRoutes(logger *slog.Logger,
 				RequestRedirect:        requestRedirectFilter,
 				Rewrite:                rewriteFilter,
 				RequestMirrors:         requestMirrors,
+				ExternalAuth:           externalAuth,
 				Timeout:                toTimeout(rule.Timeouts),
 				Retry:                  toHTTPRetry(rule.Retry),
 			})
@@ -776,6 +781,36 @@ func toHTTPRewriteFilter(rewrite *gatewayv1.HTTPURLRewriteFilter) *model.HTTPURL
 		HostName: (*string)(rewrite.Hostname),
 		Path:     path,
 	}
+}
+
+func toHTTPExternalAuthFilter(ea *gatewayv1.HTTPExternalAuthFilter, defaultNamespace string, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport) *model.HTTPExternalAuthFilter {
+	if ea == nil || ea.BackendRef.Port == nil {
+		return nil
+	}
+	ns := helpers.NamespaceDerefOr(ea.BackendRef.Namespace, defaultNamespace)
+	svcName, err := getBackendServiceName(ns, services, serviceImports, ea.BackendRef)
+	if err != nil {
+		return nil
+	}
+	svc := getServiceSpec(svcName, ns, services)
+	if svc == nil {
+		return nil
+	}
+
+	filter := &model.HTTPExternalAuthFilter{
+		Backend: model.Backend{
+			Name:      svcName,
+			Namespace: ns,
+			Port:      &model.BackendPort{Port: uint32(*ea.BackendRef.Port)},
+		},
+		Protocol: string(ea.ExternalAuthProtocol),
+	}
+	if ea.HTTPAuthConfig != nil {
+		filter.PathPrefix = ea.HTTPAuthConfig.Path
+		filter.AllowedRequestHeaders = ea.HTTPAuthConfig.AllowedRequestHeaders
+		filter.AllowedResponseHeaders = ea.HTTPAuthConfig.AllowedResponseHeaders
+	}
+	return filter
 }
 
 func toHTTPRequestMirror(svc corev1.Service, mirror *gatewayv1.HTTPRequestMirrorFilter, ns string) *model.HTTPRequestMirror {

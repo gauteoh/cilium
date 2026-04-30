@@ -281,6 +281,22 @@ type HTTPRequestMirror struct {
 	Denominator int32 `json:"denominator,omitempty"`
 }
 
+// HTTPExternalAuthFilter defines configuration for an external authorization filter.
+type HTTPExternalAuthFilter struct {
+	// Backend is the authorization service backend.
+	Backend Backend `json:"backend"`
+	// Protocol is either "HTTP" or "GRPC".
+	Protocol string `json:"protocol"`
+	// FailureModeAllow allows requests through if the auth service is unavailable.
+	FailureModeAllow bool `json:"failure_mode_allow,omitempty"`
+	// PathPrefix is prepended to the request path when forwarding to HTTP auth backends.
+	PathPrefix string `json:"path_prefix,omitempty"`
+	// AllowedRequestHeaders are additional headers forwarded to the auth service (HTTP protocol).
+	AllowedRequestHeaders []string `json:"allowed_request_headers,omitempty"`
+	// AllowedResponseHeaders are headers from the auth response to forward to the upstream (HTTP protocol).
+	AllowedResponseHeaders []string `json:"allowed_response_headers,omitempty"`
+}
+
 // HTTPRoute holds all the details needed to route HTTP traffic to a backend.
 type HTTPRoute struct {
 	Name string `json:"name,omitempty"`
@@ -318,6 +334,9 @@ type HTTPRoute struct {
 	// RequestMirrors defines a schema for a filter that mirrors HTTP requests
 	// Unlike other filter, multiple request mirrors are supported
 	RequestMirrors []*HTTPRequestMirror `json:"request_mirrors,omitempty"`
+
+	// ExternalAuth configures external authorization for this route.
+	ExternalAuth *HTTPExternalAuthFilter `json:"external_auth,omitempty"`
 
 	// IsGRPC is an indicator if this route is related to GRPC
 	IsGRPC bool `json:"is_grpc,omitempty"`

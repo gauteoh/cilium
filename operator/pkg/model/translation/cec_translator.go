@@ -4,6 +4,7 @@
 package translation
 
 import (
+	"log/slog"
 	"maps"
 	goslices "slices"
 	"sort"
@@ -302,6 +303,9 @@ func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 				}
 				mergeBackendsInNamespaceNamePortMap([]model.Backend{*rm.Backend}, namespaceNamePortMap)
 			}
+			if r.ExternalAuth != nil {
+				mergeBackendsInNamespaceNamePortMap([]model.Backend{r.ExternalAuth.Backend}, namespaceNamePortMap)
+			}
 		}
 	}
 
@@ -312,6 +316,53 @@ func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 	}
 
 	return namespaceNamePortMap
+}
+
+// getUniqueAuthFilters returns a deduplicated list of HTTPExternalAuthFilter from all routes,
+// keyed by cluster name (namespace:name:port). First occurrence wins for a given cluster.
+//
+// NOTE: ext_authz filter properties such as PathPrefix are per-HCM-filter in Envoy, not
+// per-route. If two routes share the same auth backend but configure different PathPrefixes,
+// only the first occurrence's PathPrefix is used for all routes sharing that backend.
+func getUniqueAuthFilters(m *model.Model) []*model.HTTPExternalAuthFilter {
+	seen := map[string]*model.HTTPExternalAuthFilter{}
+	var result []*model.HTTPExternalAuthFilter
+	for _, l := range m.HTTP {
+		for _, r := range l.Routes {
+			if r.ExternalAuth == nil {
+				continue
+			}
+			be := r.ExternalAuth.Backend
+			key := getClusterName(be.Namespace, be.Name, be.Port.GetPort())
+			if first, exists := seen[key]; !exists {
+				seen[key] = r.ExternalAuth
+				result = append(result, r.ExternalAuth)
+			} else if first.PathPrefix != r.ExternalAuth.PathPrefix {
+				slog.Warn("Multiple HTTPRoutes share the same ext_authz backend but configure different HTTP path prefixes; only the first path prefix will be used for all routes sharing this backend",
+					"backend", key,
+					"active_path_prefix", first.PathPrefix,
+					"ignored_path_prefix", r.ExternalAuth.PathPrefix,
+				)
+			}
+		}
+	}
+	return result
+}
+
+// isGRPCExtAuthService returns true if the backend at ns/name/port is used as a gRPC ext_authz backend.
+func isGRPCExtAuthService(m *model.Model, ns, name, port string) bool {
+	for _, l := range m.HTTP {
+		for _, r := range l.Routes {
+			if r.ExternalAuth == nil {
+				continue
+			}
+			be := r.ExternalAuth.Backend
+			if be.Namespace == ns && be.Name == name && be.Port != nil && be.Port.GetPort() == port {
+				return r.ExternalAuth.Protocol == "GRPC"
+			}
+		}
+	}
+	return false
 }
 
 func mergeBackendsInNamespaceNamePortMap(backends []model.Backend, namespaceNamePortMap map[string]map[string][]string) {

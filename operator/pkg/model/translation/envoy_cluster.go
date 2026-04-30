@@ -70,7 +70,7 @@ func (i *cecTranslator) desiredEnvoyCluster(m *model.Model) ([]ciliumv2.XDSResou
 				clusterServiceName := getClusterServiceName(ns, name, port)
 				sortedClusterNames = append(sortedClusterNames, clusterName)
 				envoyClusters[clusterName], _ = i.httpCluster(clusterName, clusterServiceName,
-					isGRPCService(m, ns, name, port),
+					isGRPCService(m, ns, name, port) || isGRPCExtAuthService(m, ns, name, port),
 					getAppProtocol(m, ns, name, port),
 					getTLSOrigination(m, ns, name, port))
 			}
@@ -170,6 +170,9 @@ func getNamespaceNamePortsMapForHTTP(m *model.Model) map[string]map[string][]str
 					continue
 				}
 				mergeBackendsInNamespaceNamePortMap([]model.Backend{*rm.Backend}, namespaceNamePortMap)
+			}
+			if r.ExternalAuth != nil {
+				mergeBackendsInNamespaceNamePortMap([]model.Backend{r.ExternalAuth.Backend}, namespaceNamePortMap)
 			}
 		}
 	}

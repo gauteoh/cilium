@@ -239,8 +239,10 @@ func (i *cecTranslator) desiredEnvoyListener(m *model.Model) ([]ciliumv2.XDSReso
 func (i *cecTranslator) filterChains(name string, m *model.Model) ([]*envoy_config_listener.FilterChain, error) {
 	var filterChains []*envoy_config_listener.FilterChain
 
+	authFilters := getUniqueAuthFilters(m)
+
 	if m.IsHTTPListenerConfigured() {
-		httpFilterChain, err := i.httpFilterChain(name)
+		httpFilterChain, err := i.httpFilterChain(name, authFilters)
 		if err != nil {
 			return nil, err
 		}
@@ -248,7 +250,7 @@ func (i *cecTranslator) filterChains(name string, m *model.Model) ([]*envoy_conf
 	}
 
 	if m.IsHTTPSListenerConfigured() {
-		httpsFilterChains, err := i.httpsFilterChains(name, m)
+		httpsFilterChains, err := i.httpsFilterChains(name, m, authFilters)
 		if err != nil {
 			return nil, err
 		}
@@ -294,11 +296,12 @@ func (i *cecTranslator) listenerMutators(m *model.Model) []ListenerMutator {
 	return res
 }
 
-func (i *cecTranslator) httpFilterChain(name string) (*envoy_config_listener.FilterChain, error) {
+func (i *cecTranslator) httpFilterChain(name string, authFilters []*model.HTTPExternalAuthFilter) (*envoy_config_listener.FilterChain, error) {
 	insecureHttpConnectionManagerName := fmt.Sprintf("%s-insecure", name)
 	insecureHttpConnectionManager, err := i.desiredHTTPConnectionManager(
 		insecureHttpConnectionManagerName,
 		insecureHttpConnectionManagerName,
+		authFilters,
 	)
 	if err != nil {
 		return nil, err
@@ -317,7 +320,7 @@ func (i *cecTranslator) httpFilterChain(name string) (*envoy_config_listener.Fil
 	}, nil
 }
 
-func (i *cecTranslator) httpsFilterChains(name string, m *model.Model) ([]*envoy_config_listener.FilterChain, error) {
+func (i *cecTranslator) httpsFilterChains(name string, m *model.Model, authFilters []*model.HTTPExternalAuthFilter) ([]*envoy_config_listener.FilterChain, error) {
 	tlsToHostnames := m.TLSSecretsToHostnames()
 	if len(tlsToHostnames) == 0 {
 		return nil, nil
@@ -333,7 +336,7 @@ func (i *cecTranslator) httpsFilterChains(name string, m *model.Model) ([]*envoy
 		hostNames := tlsToHostnames[secret]
 
 		secureHttpConnectionManagerName := fmt.Sprintf("%s-secure", name)
-		secureHttpConnectionManager, err := i.desiredHTTPConnectionManager(secureHttpConnectionManagerName, secureHttpConnectionManagerName)
+		secureHttpConnectionManager, err := i.desiredHTTPConnectionManager(secureHttpConnectionManagerName, secureHttpConnectionManagerName, authFilters)
 		if err != nil {
 			return nil, err
 		}
