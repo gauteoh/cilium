@@ -271,6 +271,14 @@ func getTLSOrigination(m *model.Model, ns string, name string, port string) *mod
 					}
 				}
 			}
+			if r.ExternalAuth != nil {
+				be := r.ExternalAuth.Backend
+				if be.Name == name && be.Namespace == ns && be.Port != nil && be.Port.GetPort() == port {
+					if be.TLS != nil {
+						return be.TLS
+					}
+				}
+			}
 		}
 	}
 
@@ -321,9 +329,9 @@ func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 // getUniqueAuthFilters returns a deduplicated list of HTTPExternalAuthFilter from all routes,
 // keyed by cluster name (namespace:name:port). First occurrence wins for a given cluster.
 //
-// NOTE: ext_authz filter properties such as PathPrefix are per-HCM-filter in Envoy, not
-// per-route. If two routes share the same auth backend but configure different PathPrefixes,
-// only the first occurrence's PathPrefix is used for all routes sharing that backend.
+// NOTE: ext_authz filter properties such as PathPrefix and ForwardBody are per-HCM-filter in
+// Envoy, not per-route. If two routes share the same auth backend but configure different values,
+// only the first occurrence's values are used for all routes sharing that backend.
 func getUniqueAuthFilters(m *model.Model) []*model.HTTPExternalAuthFilter {
 	seen := map[string]*model.HTTPExternalAuthFilter{}
 	var result []*model.HTTPExternalAuthFilter
@@ -337,12 +345,29 @@ func getUniqueAuthFilters(m *model.Model) []*model.HTTPExternalAuthFilter {
 			if first, exists := seen[key]; !exists {
 				seen[key] = r.ExternalAuth
 				result = append(result, r.ExternalAuth)
-			} else if first.PathPrefix != r.ExternalAuth.PathPrefix {
-				slog.Warn("Multiple HTTPRoutes share the same ext_authz backend but configure different HTTP path prefixes; only the first path prefix will be used for all routes sharing this backend",
-					"backend", key,
-					"active_path_prefix", first.PathPrefix,
-					"ignored_path_prefix", r.ExternalAuth.PathPrefix,
-				)
+			} else {
+				if first.PathPrefix != r.ExternalAuth.PathPrefix {
+					slog.Warn("Multiple HTTPRoutes share the same ext_authz backend but configure different HTTP path prefixes; only the first path prefix will be used for all routes sharing this backend",
+						"backend", key,
+						"active_path_prefix", first.PathPrefix,
+						"ignored_path_prefix", r.ExternalAuth.PathPrefix,
+					)
+				}
+				firstMaxSize := uint32(0)
+				if first.ForwardBody != nil {
+					firstMaxSize = first.ForwardBody.MaxSize
+				}
+				otherMaxSize := uint32(0)
+				if r.ExternalAuth.ForwardBody != nil {
+					otherMaxSize = r.ExternalAuth.ForwardBody.MaxSize
+				}
+				if firstMaxSize != otherMaxSize {
+					slog.Warn("Multiple HTTPRoutes share the same ext_authz backend but configure different forwardBody.maxSize values; only the first value will be used for all routes sharing this backend",
+						"backend", key,
+						"active_max_size", firstMaxSize,
+						"ignored_max_size", otherMaxSize,
+					)
+				}
 			}
 		}
 	}

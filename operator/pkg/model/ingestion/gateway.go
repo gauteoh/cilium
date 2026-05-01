@@ -348,7 +348,7 @@ func extractRoutes(logger *slog.Logger,
 					requestMirrors = append(requestMirrors, toHTTPRequestMirror(*svc, f.RequestMirror, hr.Namespace))
 				}
 			case gatewayv1.HTTPRouteFilterExternalAuth:
-				externalAuth = toHTTPExternalAuthFilter(f.ExternalAuth, hr.Namespace, services, serviceImports)
+				externalAuth = toHTTPExternalAuthFilter(logger, f.ExternalAuth, hr.Namespace, services, serviceImports, btlspMap)
 			}
 		}
 
@@ -783,7 +783,7 @@ func toHTTPRewriteFilter(rewrite *gatewayv1.HTTPURLRewriteFilter) *model.HTTPURL
 	}
 }
 
-func toHTTPExternalAuthFilter(ea *gatewayv1.HTTPExternalAuthFilter, defaultNamespace string, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport) *model.HTTPExternalAuthFilter {
+func toHTTPExternalAuthFilter(log *slog.Logger, ea *gatewayv1.HTTPExternalAuthFilter, defaultNamespace string, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, btlspMap helpers.BackendTLSPolicyServiceMap) *model.HTTPExternalAuthFilter {
 	if ea == nil || ea.BackendRef.Port == nil {
 		return nil
 	}
@@ -797,18 +797,31 @@ func toHTTPExternalAuthFilter(ea *gatewayv1.HTTPExternalAuthFilter, defaultNames
 		return nil
 	}
 
+	be := model.Backend{
+		Name:      svcName,
+		Namespace: ns,
+		Port:      &model.BackendPort{Port: uint32(*ea.BackendRef.Port)},
+	}
+	var include bool
+	be, include = addBackendTLSDetails(log, be, svc, btlspMap)
+	if !include {
+		return nil
+	}
+
 	filter := &model.HTTPExternalAuthFilter{
-		Backend: model.Backend{
-			Name:      svcName,
-			Namespace: ns,
-			Port:      &model.BackendPort{Port: uint32(*ea.BackendRef.Port)},
-		},
+		Backend:  be,
 		Protocol: string(ea.ExternalAuthProtocol),
 	}
 	if ea.HTTPAuthConfig != nil {
 		filter.PathPrefix = ea.HTTPAuthConfig.Path
 		filter.AllowedRequestHeaders = ea.HTTPAuthConfig.AllowedRequestHeaders
 		filter.AllowedResponseHeaders = ea.HTTPAuthConfig.AllowedResponseHeaders
+	}
+	if ea.GRPCAuthConfig != nil {
+		filter.AllowedRequestHeaders = ea.GRPCAuthConfig.AllowedRequestHeaders
+	}
+	if ea.ForwardBody != nil && ea.ForwardBody.MaxSize > 0 {
+		filter.ForwardBody = &model.ForwardBodyConfig{MaxSize: uint32(ea.ForwardBody.MaxSize)}
 	}
 	return filter
 }

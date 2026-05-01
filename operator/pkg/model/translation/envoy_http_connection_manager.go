@@ -140,6 +140,9 @@ func buildExtAuthzHTTPFilter(af *model.HTTPExternalAuthFilter) (*httpConnectionM
 			},
 			FailureModeAllow: af.FailureModeAllow,
 		}
+		if len(af.AllowedRequestHeaders) > 0 {
+			config.AllowedHeaders = toListStringMatcher(af.AllowedRequestHeaders)
+		}
 	} else {
 		httpSvc := &extauthzv3.HttpService{
 			ServerUri: &envoy_config_core.HttpUri{
@@ -151,11 +154,6 @@ func buildExtAuthzHTTPFilter(af *model.HTTPExternalAuthFilter) (*httpConnectionM
 			},
 			PathPrefix: af.PathPrefix,
 		}
-		if len(af.AllowedRequestHeaders) > 0 {
-			httpSvc.AuthorizationRequest = &extauthzv3.AuthorizationRequest{
-				AllowedHeaders: toListStringMatcher(af.AllowedRequestHeaders),
-			}
-		}
 		if len(af.AllowedResponseHeaders) > 0 {
 			httpSvc.AuthorizationResponse = &extauthzv3.AuthorizationResponse{
 				AllowedUpstreamHeaders: toListStringMatcher(af.AllowedResponseHeaders),
@@ -166,6 +164,15 @@ func buildExtAuthzHTTPFilter(af *model.HTTPExternalAuthFilter) (*httpConnectionM
 				HttpService: httpSvc,
 			},
 			FailureModeAllow: af.FailureModeAllow,
+		}
+		if len(af.AllowedRequestHeaders) > 0 {
+			config.AllowedHeaders = toListStringMatcher(af.AllowedRequestHeaders)
+		}
+	}
+
+	if af.ForwardBody != nil && af.ForwardBody.MaxSize > 0 {
+		config.WithRequestBody = &extauthzv3.BufferSettings{
+			MaxRequestBytes: af.ForwardBody.MaxSize,
 		}
 	}
 

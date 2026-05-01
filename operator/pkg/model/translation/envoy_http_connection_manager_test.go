@@ -80,6 +80,61 @@ func Test_desiredHTTPConnectionManager_withExtAuthz(t *testing.T) {
 	require.Equal(t, "default:http-authz:8080", httpFilter.GetHttpService().GetServerUri().GetCluster())
 }
 
+func Test_buildExtAuthzHTTPFilter_forwardBody(t *testing.T) {
+	t.Run("forward body set on GRPC filter", func(t *testing.T) {
+		af := &model.HTTPExternalAuthFilter{
+			Backend:     model.Backend{Name: "grpc-authz", Namespace: "default", Port: &model.BackendPort{Port: 9000}},
+			Protocol:    "GRPC",
+			ForwardBody: &model.ForwardBodyConfig{MaxSize: 4096},
+		}
+		filter, err := buildExtAuthzHTTPFilter(af)
+		require.NoError(t, err)
+		config := &extauthzv3.ExtAuthz{}
+		require.NoError(t, proto.Unmarshal(filter.GetTypedConfig().Value, config))
+		require.NotNil(t, config.GetWithRequestBody())
+		require.Equal(t, uint32(4096), config.GetWithRequestBody().GetMaxRequestBytes())
+	})
+
+	t.Run("forward body set on HTTP filter", func(t *testing.T) {
+		af := &model.HTTPExternalAuthFilter{
+			Backend:     model.Backend{Name: "http-authz", Namespace: "default", Port: &model.BackendPort{Port: 8080}},
+			Protocol:    "HTTP",
+			ForwardBody: &model.ForwardBodyConfig{MaxSize: 8192},
+		}
+		filter, err := buildExtAuthzHTTPFilter(af)
+		require.NoError(t, err)
+		config := &extauthzv3.ExtAuthz{}
+		require.NoError(t, proto.Unmarshal(filter.GetTypedConfig().Value, config))
+		require.NotNil(t, config.GetWithRequestBody())
+		require.Equal(t, uint32(8192), config.GetWithRequestBody().GetMaxRequestBytes())
+	})
+
+	t.Run("no forward body when nil", func(t *testing.T) {
+		af := &model.HTTPExternalAuthFilter{
+			Backend:  model.Backend{Name: "http-authz", Namespace: "default", Port: &model.BackendPort{Port: 8080}},
+			Protocol: "HTTP",
+		}
+		filter, err := buildExtAuthzHTTPFilter(af)
+		require.NoError(t, err)
+		config := &extauthzv3.ExtAuthz{}
+		require.NoError(t, proto.Unmarshal(filter.GetTypedConfig().Value, config))
+		require.Nil(t, config.GetWithRequestBody())
+	})
+
+	t.Run("no forward body when max size is zero", func(t *testing.T) {
+		af := &model.HTTPExternalAuthFilter{
+			Backend:     model.Backend{Name: "http-authz", Namespace: "default", Port: &model.BackendPort{Port: 8080}},
+			Protocol:    "HTTP",
+			ForwardBody: &model.ForwardBodyConfig{MaxSize: 0},
+		}
+		filter, err := buildExtAuthzHTTPFilter(af)
+		require.NoError(t, err)
+		config := &extauthzv3.ExtAuthz{}
+		require.NoError(t, proto.Unmarshal(filter.GetTypedConfig().Value, config))
+		require.Nil(t, config.GetWithRequestBody())
+	})
+}
+
 func Test_buildExtAuthzPerRouteConfig(t *testing.T) {
 	authFilters := []*model.HTTPExternalAuthFilter{
 		{Backend: model.Backend{Name: "svc-a", Namespace: "ns", Port: &model.BackendPort{Port: 9000}}, Protocol: "GRPC"},

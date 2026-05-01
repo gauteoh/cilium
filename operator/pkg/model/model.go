@@ -295,6 +295,16 @@ type HTTPExternalAuthFilter struct {
 	AllowedRequestHeaders []string `json:"allowed_request_headers,omitempty"`
 	// AllowedResponseHeaders are headers from the auth response to forward to the upstream (HTTP protocol).
 	AllowedResponseHeaders []string `json:"allowed_response_headers,omitempty"`
+	// ForwardBody configures buffering and forwarding of the client request body to the auth service.
+	// If nil or MaxSize is 0, the body is not forwarded.
+	ForwardBody *ForwardBodyConfig `json:"forward_body,omitempty"`
+}
+
+// ForwardBodyConfig controls if and how the client request body is forwarded to the auth service.
+type ForwardBodyConfig struct {
+	// MaxSize is the maximum number of bytes to buffer and forward. If the body exceeds this,
+	// Envoy returns HTTP 413 and does not forward the request to the auth service.
+	MaxSize uint32 `json:"max_size"`
 }
 
 // HTTPRoute holds all the details needed to route HTTP traffic to a backend.
