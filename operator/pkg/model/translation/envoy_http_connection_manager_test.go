@@ -153,7 +153,7 @@ func Test_buildExtAuthzPerRouteConfig(t *testing.T) {
 
 	t.Run("route with auth enables its filter and disables others", func(t *testing.T) {
 		routeAuth := &model.HTTPExternalAuthFilter{
-			Backend: model.Backend{Name: "svc-a", Namespace: "ns", Port: &model.BackendPort{Port: 9000}},
+			Backend:  model.Backend{Name: "svc-a", Namespace: "ns", Port: &model.BackendPort{Port: 9000}},
 			Protocol: "GRPC",
 		}
 		cfg := buildExtAuthzPerRouteConfig(routeAuth, authFilters)

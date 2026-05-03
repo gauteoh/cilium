@@ -155,8 +155,16 @@ func buildExtAuthzHTTPFilter(af *model.HTTPExternalAuthFilter) (*httpConnectionM
 			PathPrefix: af.PathPrefix,
 		}
 		if len(af.AllowedResponseHeaders) > 0 {
+			// Explicit list: use AllowedUpstreamHeaders (replaces matching headers).
 			httpSvc.AuthorizationResponse = &extauthzv3.AuthorizationResponse{
 				AllowedUpstreamHeaders: toListStringMatcher(af.AllowedResponseHeaders),
+			}
+		} else {
+			// Empty list means forward all (per Gateway API spec), but use
+			// AllowedUpstreamHeadersToAppend so Envoy's built-in protection prevents
+			// Content-Length, Host, and Authority from being overwritten by the auth response.
+			httpSvc.AuthorizationResponse = &extauthzv3.AuthorizationResponse{
+				AllowedUpstreamHeadersToAppend: allHeadersMatcher(),
 			}
 		}
 		config = &extauthzv3.ExtAuthz{
@@ -182,6 +190,19 @@ func buildExtAuthzHTTPFilter(af *model.HTTPExternalAuthFilter) (*httpConnectionM
 			TypedConfig: toAny(config),
 		},
 	}, nil
+}
+
+// allHeadersMatcher returns a ListStringMatcher that matches every header name.
+func allHeadersMatcher() *envoy_type_matcher_v3.ListStringMatcher {
+	return &envoy_type_matcher_v3.ListStringMatcher{
+		Patterns: []*envoy_type_matcher_v3.StringMatcher{
+			{
+				MatchPattern: &envoy_type_matcher_v3.StringMatcher_SafeRegex{
+					SafeRegex: &envoy_type_matcher_v3.RegexMatcher{Regex: ".*"},
+				},
+			},
+		},
+	}
 }
 
 // toListStringMatcher converts a list of exact header names into an Envoy ListStringMatcher.
