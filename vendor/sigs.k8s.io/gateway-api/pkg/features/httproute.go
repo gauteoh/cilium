@@ -111,6 +111,18 @@ const (
 
 	// This option indicates support for HTTPRoute additional redirect status code 303 (extended conformance)
 	SupportHTTPRoute308RedirectStatusCode FeatureName = "HTTPRoute308RedirectStatusCode"
+
+	// This option indicates support for the ExternalAuth filter in HTTPRoute (extended conformance)
+	SupportHTTPRouteExtAuth FeatureName = "HTTPRouteExtAuth"
+
+	// This option indicates support for the gRPC protocol in the ExternalAuth filter (extended conformance)
+	SupportHTTPRouteExtAuthGRPC FeatureName = "HTTPRouteExtAuthGRPC"
+
+	// This option indicates support for the HTTP protocol in the ExternalAuth filter (extended conformance)
+	SupportHTTPRouteExtAuthHTTP FeatureName = "HTTPRouteExtAuthHTTP"
+
+	// This option indicates support for forwarding the request body to the ext_authz server (extended conformance)
+	SupportHTTPRouteExtAuthForwardBody FeatureName = "HTTPRouteExtAuthForwardBody"
 )
 
 var (
@@ -229,6 +241,26 @@ var (
 		Name:    SupportHTTPRoute308RedirectStatusCode,
 		Channel: FeatureChannelStandard,
 	}
+	// HTTPRouteExtAuthFeature contains metadata for the SupportHTTPRouteExtAuth feature.
+	HTTPRouteExtAuthFeature = Feature{
+		Name:    SupportHTTPRouteExtAuth,
+		Channel: FeatureChannelExperimental,
+	}
+	// HTTPRouteExtAuthGRPCFeature contains metadata for the SupportHTTPRouteExtAuthGRPC feature.
+	HTTPRouteExtAuthGRPCFeature = Feature{
+		Name:    SupportHTTPRouteExtAuthGRPC,
+		Channel: FeatureChannelExperimental,
+	}
+	// HTTPRouteExtAuthHTTPFeature contains metadata for the SupportHTTPRouteExtAuthHTTP feature.
+	HTTPRouteExtAuthHTTPFeature = Feature{
+		Name:    SupportHTTPRouteExtAuthHTTP,
+		Channel: FeatureChannelExperimental,
+	}
+	// HTTPRouteExtAuthForwardBodyFeature contains metadata for the SupportHTTPRouteExtAuthForwardBody feature.
+	HTTPRouteExtAuthForwardBodyFeature = Feature{
+		Name:    SupportHTTPRouteExtAuthForwardBody,
+		Channel: FeatureChannelExperimental,
+	}
 )
 
 // HTTPRouteExtendedFeatures includes all extended features for HTTPRoute
@@ -258,4 +290,8 @@ var HTTPRouteExtendedFeatures = sets.New(
 	HTTPRoute303RedirectStatusCodeFeature,
 	HTTPRoute307RedirectStatusCodeFeature,
 	HTTPRoute308RedirectStatusCodeFeature,
+	HTTPRouteExtAuthFeature,
+	HTTPRouteExtAuthGRPCFeature,
+	HTTPRouteExtAuthHTTPFeature,
+	HTTPRouteExtAuthForwardBodyFeature,
 )
