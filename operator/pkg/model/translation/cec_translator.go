@@ -4,7 +4,6 @@
 package translation
 
 import (
-	"log/slog"
 	"maps"
 	goslices "slices"
 	"sort"
@@ -16,9 +15,13 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/shortener"
 	"github.com/cilium/cilium/pkg/slices"
 )
+
+var log = logging.DefaultSlogLogger.With(logfields.LogSubsys, "cec-translator")
 
 const (
 	secureHost   = "secure"
@@ -347,10 +350,10 @@ func getUniqueAuthFilters(m *model.Model) []*model.HTTPExternalAuthFilter {
 				result = append(result, r.ExternalAuth)
 			} else {
 				if first.PathPrefix != r.ExternalAuth.PathPrefix {
-					slog.Warn("Multiple HTTPRoutes share the same ext_authz backend but configure different HTTP path prefixes; only the first path prefix will be used for all routes sharing this backend",
-						"backend", key,
-						"active_path_prefix", first.PathPrefix,
-						"ignored_path_prefix", r.ExternalAuth.PathPrefix,
+					log.Warn("Multiple HTTPRoutes share the same ext_authz backend but configure different HTTP path prefixes; only the first path prefix will be used for all routes sharing this backend",
+						logfields.Backend, key,
+						logfields.ActivePathPrefix, first.PathPrefix,
+						logfields.IgnoredPathPrefix, r.ExternalAuth.PathPrefix,
 					)
 				}
 				firstMaxSize := uint32(0)
@@ -362,10 +365,10 @@ func getUniqueAuthFilters(m *model.Model) []*model.HTTPExternalAuthFilter {
 					otherMaxSize = r.ExternalAuth.ForwardBody.MaxSize
 				}
 				if firstMaxSize != otherMaxSize {
-					slog.Warn("Multiple HTTPRoutes share the same ext_authz backend but configure different forwardBody.maxSize values; only the first value will be used for all routes sharing this backend",
-						"backend", key,
-						"active_max_size", firstMaxSize,
-						"ignored_max_size", otherMaxSize,
+					log.Warn("Multiple HTTPRoutes share the same ext_authz backend but configure different forwardBody.maxSize values; only the first value will be used for all routes sharing this backend",
+						logfields.Backend, key,
+						logfields.ActiveMaxSize, firstMaxSize,
+						logfields.IgnoredMaxSize, otherMaxSize,
 					)
 				}
 			}

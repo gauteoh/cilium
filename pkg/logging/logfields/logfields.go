@@ -1128,6 +1128,14 @@ const (
 
 	Backend = "backend"
 
+	ActivePathPrefix = "activePathPrefix"
+
+	IgnoredPathPrefix = "ignoredPathPrefix"
+
+	ActiveMaxSize = "activeMaxSize"
+
+	IgnoredMaxSize = "ignoredMaxSize"
+
 	FrontendID = "frontendID"
 
 	ListenerID = "listenerID"
