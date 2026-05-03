@@ -1136,6 +1136,14 @@ const (
 
 	IgnoredMaxSize = "ignoredMaxSize"
 
+	ActiveAllowedRequestHeaders = "activeAllowedRequestHeaders"
+
+	IgnoredAllowedRequestHeaders = "ignoredAllowedRequestHeaders"
+
+	ActiveAllowedResponseHeaders = "activeAllowedResponseHeaders"
+
+	IgnoredAllowedResponseHeaders = "ignoredAllowedResponseHeaders"
+
 	FrontendID = "frontendID"
 
 	ListenerID = "listenerID"

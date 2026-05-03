@@ -281,12 +281,20 @@ type HTTPRequestMirror struct {
 	Denominator int32 `json:"denominator,omitempty"`
 }
 
+// ExternalAuthProtocol is the protocol used to communicate with an ext_authz backend.
+type ExternalAuthProtocol string
+
+const (
+	ExternalAuthProtocolGRPC ExternalAuthProtocol = "GRPC"
+	ExternalAuthProtocolHTTP ExternalAuthProtocol = "HTTP"
+)
+
 // HTTPExternalAuthFilter defines configuration for an external authorization filter.
 type HTTPExternalAuthFilter struct {
 	// Backend is the authorization service backend.
 	Backend Backend `json:"backend"`
-	// Protocol is either "HTTP" or "GRPC".
-	Protocol string `json:"protocol"`
+	// Protocol is the protocol used to communicate with the auth backend.
+	Protocol ExternalAuthProtocol `json:"protocol"`
 	// FailureModeAllow allows requests through if the auth service is unavailable.
 	FailureModeAllow bool `json:"failure_mode_allow,omitempty"`
 	// PathPrefix is prepended to the request path when forwarding to HTTP auth backends.

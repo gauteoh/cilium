@@ -12,9 +12,11 @@ import (
 	"time"
 
 	envoy_config_route_v3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	extauthzv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
 	envoy_type_matcher_v3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -705,4 +707,38 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 		require.NotNil(t, res[1].GetRoute())
 		require.Equal(t, "default:backend:31337", res[1].GetRoute().GetCluster())
 	})
+}
+
+// Test_envoyHTTPSRoutes_disablesExtAuthzFilters verifies that HTTPS redirect routes
+// explicitly disable any ext_authz filters present on the listener. Without this,
+// redirect routes on a mixed listener inherit auth enforcement, which is incorrect.
+func Test_envoyHTTPSRoutes_disablesExtAuthzFilters(t *testing.T) {
+	authFilters := []*model.HTTPExternalAuthFilter{
+		{Backend: model.Backend{Name: "authz", Namespace: "ns", Port: &model.BackendPort{Port: 9000}}, Protocol: model.ExternalAuthProtocolGRPC},
+	}
+	routes := []model.HTTPRoute{
+		{PathMatch: model.StringMatch{Prefix: "/"}},
+	}
+
+	result := envoyHTTPSRoutes(routes, []string{"example.com"}, false, authFilters)
+	require.Len(t, result, 1)
+
+	// The redirect route must disable all auth filters so that redirect requests
+	// are not sent to the auth server before being redirected.
+	require.NotNil(t, result[0].TypedPerFilterConfig, "HTTPS redirect route must have TypedPerFilterConfig to disable ext_authz filters")
+	filterName := ExtAuthzFilterName("ns:authz:9000")
+	entry, ok := result[0].TypedPerFilterConfig[filterName]
+	require.True(t, ok, "expected ext_authz filter to be disabled on redirect route")
+	perRoute := &extauthzv3.ExtAuthzPerRoute{}
+	require.NoError(t, proto.Unmarshal(entry.Value, perRoute))
+	require.True(t, perRoute.GetDisabled())
+}
+
+func Test_envoyHTTPSRoutes_noAuthFilters(t *testing.T) {
+	routes := []model.HTTPRoute{
+		{PathMatch: model.StringMatch{Prefix: "/"}},
+	}
+	result := envoyHTTPSRoutes(routes, []string{"example.com"}, false, nil)
+	require.Len(t, result, 1)
+	require.Nil(t, result[0].TypedPerFilterConfig, "redirect route must not set TypedPerFilterConfig when there are no auth filters")
 }

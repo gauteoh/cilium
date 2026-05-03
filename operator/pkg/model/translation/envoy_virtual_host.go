@@ -134,7 +134,7 @@ type VirtualHostParameter struct {
 func (i *cecTranslator) desiredVirtualHost(httpRoutes []model.HTTPRoute, param VirtualHostParameter, mutators ...VirtualHostMutator) *envoy_config_route_v3.VirtualHost {
 	var routes SortableRoute
 	if param.HTTPSRedirect {
-		routes = envoyHTTPSRoutes(httpRoutes, param.HostNames, i.Config.RouteConfig.HostNameSuffixMatch)
+		routes = envoyHTTPSRoutes(httpRoutes, param.HostNames, i.Config.RouteConfig.HostNameSuffixMatch, param.AllAuthFilters)
 	} else {
 		routes = envoyHTTPRoutes(httpRoutes, param.HostNames, i.Config.RouteConfig.HostNameSuffixMatch, param.ListenerPort, param.AllAuthFilters)
 	}
@@ -171,7 +171,7 @@ func (i *cecTranslator) desiredVirtualHost(httpRoutes []model.HTTPRoute, param V
 	return res
 }
 
-func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool) []*envoy_config_route_v3.Route {
+func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, allAuthFilters []*model.HTTPExternalAuthFilter) []*envoy_config_route_v3.Route {
 	matchBackendMap := make(map[string][]model.HTTPRoute)
 	for _, r := range httpRoutes {
 		matchBackendMap[r.GetMatchKey()] = append(matchBackendMap[r.GetMatchKey()], r)
@@ -198,7 +198,8 @@ func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostName
 				hRoutes[0].QueryParamsMatch,
 				hRoutes[0].HeadersMatch,
 				hRoutes[0].Method),
-			Action: rRedirect,
+			Action:               rRedirect,
+			TypedPerFilterConfig: buildExtAuthzPerRouteConfig(nil, allAuthFilters),
 		}
 		routes = append(routes, &route)
 		delete(matchBackendMap, r.GetMatchKey())

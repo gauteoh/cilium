@@ -202,12 +202,12 @@ func withSocketOption(tcpKeepAlive, tcpKeepIdleInSeconds, tcpKeepAliveProbeInter
 }
 
 // desiredEnvoyListener returns the desired Envoy listener for the given model.
-func (i *cecTranslator) desiredEnvoyListener(m *model.Model) ([]ciliumv2.XDSResource, error) {
+func (i *cecTranslator) desiredEnvoyListener(m *model.Model, authFilters []*model.HTTPExternalAuthFilter) ([]ciliumv2.XDSResource, error) {
 	if m.IsEmpty() {
 		return nil, nil
 	}
 
-	filterChains, err := i.filterChains(listenerName, m)
+	filterChains, err := i.filterChains(listenerName, m, authFilters)
 	if err != nil {
 		return nil, err
 	}
@@ -236,10 +236,8 @@ func (i *cecTranslator) desiredEnvoyListener(m *model.Model) ([]ciliumv2.XDSReso
 	return []ciliumv2.XDSResource{res}, nil
 }
 
-func (i *cecTranslator) filterChains(name string, m *model.Model) ([]*envoy_config_listener.FilterChain, error) {
+func (i *cecTranslator) filterChains(name string, m *model.Model, authFilters []*model.HTTPExternalAuthFilter) ([]*envoy_config_listener.FilterChain, error) {
 	var filterChains []*envoy_config_listener.FilterChain
-
-	authFilters := getUniqueAuthFilters(m)
 
 	if m.IsHTTPListenerConfigured() {
 		httpFilterChain, err := i.httpFilterChain(name, authFilters)

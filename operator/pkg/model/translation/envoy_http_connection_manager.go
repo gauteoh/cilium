@@ -120,7 +120,7 @@ func buildExtAuthzHTTPFilter(af *model.HTTPExternalAuthFilter) (*httpConnectionM
 	filterName := ExtAuthzFilterName(clusterName)
 
 	var config *extauthzv3.ExtAuthz
-	if af.Protocol == "GRPC" {
+	if af.Protocol == model.ExternalAuthProtocolGRPC {
 		config = &extauthzv3.ExtAuthz{
 			Services: &extauthzv3.ExtAuthz_GrpcService{
 				GrpcService: &envoy_config_core.GrpcService{
@@ -144,9 +144,13 @@ func buildExtAuthzHTTPFilter(af *model.HTTPExternalAuthFilter) (*httpConnectionM
 			config.AllowedHeaders = toListStringMatcher(af.AllowedRequestHeaders)
 		}
 	} else {
+		scheme := "http"
+		if af.Backend.TLS != nil {
+			scheme = "https"
+		}
 		httpSvc := &extauthzv3.HttpService{
 			ServerUri: &envoy_config_core.HttpUri{
-				Uri: fmt.Sprintf("http://%s:%s", af.Backend.Name, af.Backend.Port.GetPort()),
+				Uri: fmt.Sprintf("%s://%s:%s", scheme, af.Backend.Name, af.Backend.Port.GetPort()),
 				HttpUpstreamType: &envoy_config_core.HttpUri_Cluster{
 					Cluster: clusterName,
 				},

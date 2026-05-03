@@ -42,11 +42,11 @@ func Test_desiredHTTPConnectionManager_withExtAuthz(t *testing.T) {
 	authFilters := []*model.HTTPExternalAuthFilter{
 		{
 			Backend:  model.Backend{Name: "grpc-authz", Namespace: "default", Port: &model.BackendPort{Port: 9000}},
-			Protocol: "GRPC",
+			Protocol: model.ExternalAuthProtocolGRPC,
 		},
 		{
 			Backend:    model.Backend{Name: "http-authz", Namespace: "default", Port: &model.BackendPort{Port: 8080}},
-			Protocol:   "HTTP",
+			Protocol:   model.ExternalAuthProtocolHTTP,
 			PathPrefix: "/auth",
 		},
 	}
@@ -84,7 +84,7 @@ func Test_buildExtAuthzHTTPFilter_forwardBody(t *testing.T) {
 	t.Run("forward body set on GRPC filter", func(t *testing.T) {
 		af := &model.HTTPExternalAuthFilter{
 			Backend:     model.Backend{Name: "grpc-authz", Namespace: "default", Port: &model.BackendPort{Port: 9000}},
-			Protocol:    "GRPC",
+			Protocol:    model.ExternalAuthProtocolGRPC,
 			ForwardBody: &model.ForwardBodyConfig{MaxSize: 4096},
 		}
 		filter, err := buildExtAuthzHTTPFilter(af)
@@ -98,7 +98,7 @@ func Test_buildExtAuthzHTTPFilter_forwardBody(t *testing.T) {
 	t.Run("forward body set on HTTP filter", func(t *testing.T) {
 		af := &model.HTTPExternalAuthFilter{
 			Backend:     model.Backend{Name: "http-authz", Namespace: "default", Port: &model.BackendPort{Port: 8080}},
-			Protocol:    "HTTP",
+			Protocol:    model.ExternalAuthProtocolHTTP,
 			ForwardBody: &model.ForwardBodyConfig{MaxSize: 8192},
 		}
 		filter, err := buildExtAuthzHTTPFilter(af)
@@ -112,7 +112,7 @@ func Test_buildExtAuthzHTTPFilter_forwardBody(t *testing.T) {
 	t.Run("no forward body when nil", func(t *testing.T) {
 		af := &model.HTTPExternalAuthFilter{
 			Backend:  model.Backend{Name: "http-authz", Namespace: "default", Port: &model.BackendPort{Port: 8080}},
-			Protocol: "HTTP",
+			Protocol: model.ExternalAuthProtocolHTTP,
 		}
 		filter, err := buildExtAuthzHTTPFilter(af)
 		require.NoError(t, err)
@@ -124,7 +124,7 @@ func Test_buildExtAuthzHTTPFilter_forwardBody(t *testing.T) {
 	t.Run("no forward body when max size is zero", func(t *testing.T) {
 		af := &model.HTTPExternalAuthFilter{
 			Backend:     model.Backend{Name: "http-authz", Namespace: "default", Port: &model.BackendPort{Port: 8080}},
-			Protocol:    "HTTP",
+			Protocol:    model.ExternalAuthProtocolHTTP,
 			ForwardBody: &model.ForwardBodyConfig{MaxSize: 0},
 		}
 		filter, err := buildExtAuthzHTTPFilter(af)
@@ -137,8 +137,8 @@ func Test_buildExtAuthzHTTPFilter_forwardBody(t *testing.T) {
 
 func Test_buildExtAuthzPerRouteConfig(t *testing.T) {
 	authFilters := []*model.HTTPExternalAuthFilter{
-		{Backend: model.Backend{Name: "svc-a", Namespace: "ns", Port: &model.BackendPort{Port: 9000}}, Protocol: "GRPC"},
-		{Backend: model.Backend{Name: "svc-b", Namespace: "ns", Port: &model.BackendPort{Port: 8080}}, Protocol: "HTTP"},
+		{Backend: model.Backend{Name: "svc-a", Namespace: "ns", Port: &model.BackendPort{Port: 9000}}, Protocol: model.ExternalAuthProtocolGRPC},
+		{Backend: model.Backend{Name: "svc-b", Namespace: "ns", Port: &model.BackendPort{Port: 8080}}, Protocol: model.ExternalAuthProtocolHTTP},
 	}
 
 	t.Run("route without auth disables all filters", func(t *testing.T) {
@@ -154,7 +154,7 @@ func Test_buildExtAuthzPerRouteConfig(t *testing.T) {
 	t.Run("route with auth enables its filter and disables others", func(t *testing.T) {
 		routeAuth := &model.HTTPExternalAuthFilter{
 			Backend:  model.Backend{Name: "svc-a", Namespace: "ns", Port: &model.BackendPort{Port: 9000}},
-			Protocol: "GRPC",
+			Protocol: model.ExternalAuthProtocolGRPC,
 		}
 		cfg := buildExtAuthzPerRouteConfig(routeAuth, authFilters)
 		// Only svc-b should be disabled; svc-a has no entry (enabled by default)

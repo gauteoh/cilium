@@ -191,12 +191,14 @@ func (i *cecTranslator) desiredServicesWithPorts(namespace string, name string, 
 func (i *cecTranslator) desiredResources(m *model.Model) ([]ciliumv2.XDSResource, error) {
 	var res []ciliumv2.XDSResource
 
-	listener, err := i.desiredEnvoyListener(m)
+	allAuthFilters := getUniqueAuthFilters(m)
+
+	listener, err := i.desiredEnvoyListener(m, allAuthFilters)
 	if err != nil {
 		return nil, err
 	}
 
-	httpRoutes, err := i.desiredEnvoyHTTPRouteConfiguration(m)
+	httpRoutes, err := i.desiredEnvoyHTTPRouteConfiguration(m, allAuthFilters)
 	if err != nil {
 		return nil, err
 	}
@@ -371,6 +373,20 @@ func getUniqueAuthFilters(m *model.Model) []*model.HTTPExternalAuthFilter {
 						logfields.IgnoredMaxSize, otherMaxSize,
 					)
 				}
+				if !goslices.Equal(first.AllowedRequestHeaders, r.ExternalAuth.AllowedRequestHeaders) {
+					log.Warn("Multiple HTTPRoutes share the same ext_authz backend but configure different allowedRequestHeaders; only the first list will be used for all routes sharing this backend",
+						logfields.Backend, key,
+						logfields.ActiveAllowedRequestHeaders, first.AllowedRequestHeaders,
+						logfields.IgnoredAllowedRequestHeaders, r.ExternalAuth.AllowedRequestHeaders,
+					)
+				}
+				if !goslices.Equal(first.AllowedResponseHeaders, r.ExternalAuth.AllowedResponseHeaders) {
+					log.Warn("Multiple HTTPRoutes share the same ext_authz backend but configure different allowedResponseHeaders; only the first list will be used for all routes sharing this backend",
+						logfields.Backend, key,
+						logfields.ActiveAllowedResponseHeaders, first.AllowedResponseHeaders,
+						logfields.IgnoredAllowedResponseHeaders, r.ExternalAuth.AllowedResponseHeaders,
+					)
+				}
 			}
 		}
 	}
@@ -386,7 +402,7 @@ func isGRPCExtAuthService(m *model.Model, ns, name, port string) bool {
 			}
 			be := r.ExternalAuth.Backend
 			if be.Namespace == ns && be.Name == name && be.Port != nil && be.Port.GetPort() == port {
-				return r.ExternalAuth.Protocol == "GRPC"
+				return r.ExternalAuth.Protocol == model.ExternalAuthProtocolGRPC
 			}
 		}
 	}

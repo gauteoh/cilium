@@ -784,7 +784,14 @@ func toHTTPRewriteFilter(rewrite *gatewayv1.HTTPURLRewriteFilter) *model.HTTPURL
 }
 
 func toHTTPExternalAuthFilter(log *slog.Logger, ea *gatewayv1.HTTPExternalAuthFilter, defaultNamespace string, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, btlspMap helpers.BackendTLSPolicyServiceMap) *model.HTTPExternalAuthFilter {
-	if ea == nil || ea.BackendRef.Port == nil {
+	if ea == nil {
+		return nil
+	}
+	if ea.BackendRef.Port == nil {
+		log.Warn("ExternalAuth filter has no port specified; filter will be ignored",
+			logfields.K8sNamespace, helpers.NamespaceDerefOr(ea.BackendRef.Namespace, defaultNamespace),
+			logfields.Name, string(ea.BackendRef.Name),
+		)
 		return nil
 	}
 	ns := helpers.NamespaceDerefOr(ea.BackendRef.Namespace, defaultNamespace)
@@ -810,7 +817,7 @@ func toHTTPExternalAuthFilter(log *slog.Logger, ea *gatewayv1.HTTPExternalAuthFi
 
 	filter := &model.HTTPExternalAuthFilter{
 		Backend:  be,
-		Protocol: string(ea.ExternalAuthProtocol),
+		Protocol: model.ExternalAuthProtocol(ea.ExternalAuthProtocol),
 	}
 	if ea.HTTPAuthConfig != nil {
 		filter.PathPrefix = ea.HTTPAuthConfig.Path
