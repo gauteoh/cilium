@@ -158,18 +158,16 @@ func buildExtAuthzHTTPFilter(af *model.HTTPExternalAuthFilter) (*httpConnectionM
 			},
 			PathPrefix: af.PathPrefix,
 		}
+		httpSvc.AuthorizationResponse = &extauthzv3.AuthorizationResponse{}
 		if len(af.AllowedResponseHeaders) > 0 {
-			// Explicit list: use AllowedUpstreamHeaders (replaces matching headers).
-			httpSvc.AuthorizationResponse = &extauthzv3.AuthorizationResponse{
-				AllowedUpstreamHeaders: toListStringMatcher(af.AllowedResponseHeaders),
-			}
+			// Explicit list: forward only those headers (replace semantics).
+			httpSvc.AuthorizationResponse.AllowedUpstreamHeaders = toListStringMatcher(af.AllowedResponseHeaders)
 		} else {
-			// Empty list means forward all (per Gateway API spec), but use
-			// AllowedUpstreamHeadersToAppend so Envoy's built-in protection prevents
-			// Content-Length, Host, and Authority from being overwritten by the auth response.
-			httpSvc.AuthorizationResponse = &extauthzv3.AuthorizationResponse{
-				AllowedUpstreamHeadersToAppend: allHeadersMatcher(),
-			}
+			// Empty list means forward all per Gateway API spec. Use AllowedUpstreamHeaders
+			// (replace, not append) so that if the auth service returns a header that already
+			// exists on the client request (e.g. Content-Length), the upstream request ends up
+			// with exactly one value rather than a duplicate that would corrupt the request.
+			httpSvc.AuthorizationResponse.AllowedUpstreamHeaders = allHeadersMatcher()
 		}
 		config = &extauthzv3.ExtAuthz{
 			Services: &extauthzv3.ExtAuthz_HttpService{
